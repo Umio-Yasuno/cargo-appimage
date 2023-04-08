@@ -50,6 +50,7 @@ fn main() -> Result<()> {
     };
     let link_deps;
     let mut link_exclude_list = Vec::with_capacity(0);
+    let mut with_version = false;
 
     if let Some(meta) = pkg.metadata.as_ref() {
         match meta {
@@ -71,6 +72,10 @@ fn main() -> Result<()> {
                     match t.get("auto_link") {
                         Some(Value::Boolean(v)) => link_deps = v.to_owned(),
                         _ => link_deps = false,
+                    }
+                    match t.get("with_version") {
+                        Some(Value::Boolean(v)) => with_version = v.to_owned(),
+                        _ => {},
                     }
                     if let Some(Value::Array(arr)) = t.get("auto_link_exclude_list") {
                         for v in arr.iter() {
@@ -99,6 +104,7 @@ fn main() -> Result<()> {
 
     for currentbin in meta.bin {
         let name = currentbin.name.unwrap_or(pkg.name.clone());
+        let version = if with_version { format!("_{}", pkg.version) } else { String::new() };
         let appdirpath = std::path::Path::new(&target_prefix).join(name.clone() + ".AppDir");
         fs_extra::dir::create_all(appdirpath.join("usr"), true)
             .with_context(|| format!("Error creating {}", appdirpath.join("usr").display()))?;
@@ -224,7 +230,7 @@ fn main() -> Result<()> {
         std::fs::write(
             appdirpath.join("cargo-appimage.desktop"),
             format!(
-                "[Desktop Entry]\nName={}\nExec=bin\nIcon=icon\nType=Application\nCategories=Utility;", name
+                "[Desktop Entry]\nName={name}{version}\nExec=bin\nIcon=icon\nType=Application\nCategories=Utility;"
                 ),
                 )
             .with_context(|| {
