@@ -24,10 +24,6 @@ fn main() -> Result<()> {
         .context("Failed to execute cargo metadata")?;
     let target_prefix = cargo_metadata.target_directory;
 
-    if !std::path::Path::new("./icon.png").exists() {
-        std::fs::write("./icon.png", &[]).context("Failed to generate icon.png")?;
-    }
-
     let meta = cargo_toml::Manifest::<Value>::from_slice(unsafe {
         memmap::Mmap::map(&std::fs::File::open("Cargo.toml")?)?.as_ref()
     })
@@ -51,6 +47,7 @@ fn main() -> Result<()> {
     let link_deps;
     let mut link_exclude_list = Vec::with_capacity(0);
     let mut with_version = false;
+    let mut icon_path = String::from("./icon.png");
 
     if let Some(meta) = pkg.metadata.as_ref() {
         match meta {
@@ -77,6 +74,10 @@ fn main() -> Result<()> {
                         Some(Value::Boolean(v)) => with_version = v.to_owned(),
                         _ => {},
                     }
+                    match t.get("icon") {
+                        Some(Value::String(v)) => icon_path = v.to_owned(),
+                        _ => {},
+                    }
                     if let Some(Value::Array(arr)) = t.get("auto_link_exclude_list") {
                         for v in arr.iter() {
                             if let Value::String(s) = v {
@@ -100,6 +101,10 @@ fn main() -> Result<()> {
     } else {
         assets = Vec::with_capacity(0);
         link_deps = false;
+    }
+
+    if !std::path::Path::new(&icon_path).exists() {
+        std::fs::write(&icon_path, &[]).context("Failed to generate icon.png")?;
     }
 
     for currentbin in meta.bin {
@@ -215,7 +220,7 @@ fn main() -> Result<()> {
                 target_prefix, &target, &name
             )
         })?;
-        std::fs::copy("./icon.png", appdirpath.join("icon.png")).context("Cannot find icon.png")?;
+        std::fs::copy(&icon_path, appdirpath.join("icon.png")).context("Cannot find icon.png")?;
         fs_extra::copy_items(
             &assets,
             appdirpath.as_path(),
